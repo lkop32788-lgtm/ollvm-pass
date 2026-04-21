@@ -1,0 +1,45 @@
+# Build output directories
+build/
+out/
+cmake-build-*/
+
+# Compiled objects and binaries
+*.o
+*.obj
+*.dll
+*.so
+*.dylib
+*.lib
+*.a
+*.exp
+*.pdb
+*.ilk
+*.sys
+*.exe
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
+
+# Test harness binary
+test/harness
+test/harness.exe
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.sln.docstates
+
+# CLion
+.idea/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
