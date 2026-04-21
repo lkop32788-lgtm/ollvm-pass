@@ -129,11 +129,84 @@ after:   %enc  = load @.ollvm.disp.foo
 | Windows SDK | 10.0.22000 或以上 |
 | WDK | 对应 SDK 版本 |
 
-### 配置与编译
+---
+
+### 方案 A — 嵌入 LLVM 构建树（推荐）
+
+将插件作为 LLVM 外部项目注册，随 LLVM 源码一起编译。
+无需预先安装 LLVM，插件与 LLVM 使用完全相同的编译器和编译参数。
+
+#### 1. 获取 LLVM 源码与本项目
+
+```bash
+git clone https://github.com/llvm/llvm-project.git
+git clone https://github.com/lkop32788-lgtm/ollvm-pass.git
+```
+
+#### 2. 配置（Linux / macOS）
+
+```bash
+cmake -S llvm-project/llvm -B llvm-build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_TARGETS_TO_BUILD="X86" \
+      -DLLVM_EXTERNAL_PROJECTS="OllvmPass" \
+      -DLLVM_EXTERNAL_OLLVMPASS_SOURCE_DIR="$(pwd)/ollvm-pass"
+
+cmake --build llvm-build --target OllvmPass
+```
+
+编译产物：`llvm-build/lib/OllvmPass.so`
+
+#### 2. 配置（Windows，x64 Native Tools Command Prompt for VS 2022）
 
 ```powershell
-# 在 x64 Native Tools Command Prompt for VS 2022 中运行
+cmake -S llvm-project\llvm -B llvm-build -G Ninja ^
+      -DCMAKE_BUILD_TYPE=Release ^
+      -DLLVM_TARGETS_TO_BUILD="X86" ^
+      -DLLVM_EXTERNAL_PROJECTS="OllvmPass" ^
+      -DLLVM_EXTERNAL_OLLVMPASS_SOURCE_DIR="C:\path\to\ollvm-pass"   # 替换为实际路径
 
+cmake --build llvm-build --target OllvmPass
+```
+
+编译产物：`llvm-build\lib\OllvmPass.dll`
+
+#### 替代方式：直接复制到 LLVM 源码树
+
+如果不想使用 `LLVM_EXTERNAL_PROJECTS`，也可以将本目录拷贝进 LLVM 源码树并在
+`llvm/lib/Transforms/CMakeLists.txt` 末尾添加一行 `add_subdirectory(OllvmPass)`：
+
+```bash
+cp -r ollvm-pass llvm-project/llvm/lib/Transforms/OllvmPass
+echo 'add_subdirectory(OllvmPass)' >> llvm-project/llvm/lib/Transforms/CMakeLists.txt
+```
+
+然后按正常流程构建 LLVM 即可。
+
+---
+
+### 方案 B — 独立（out-of-tree）编译
+
+使用已安装的 LLVM，无需重新编译 LLVM 源码。
+
+#### Linux / macOS
+
+```bash
+git clone https://github.com/lkop32788-lgtm/ollvm-pass.git
+cd ollvm-pass
+
+cmake -B build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DLLVM_DIR="/usr/lib/llvm-17/lib/cmake/llvm"
+
+cmake --build build
+```
+
+编译产物：`build/OllvmPass.so`
+
+#### Windows（x64 Native Tools Command Prompt for VS 2022）
+
+```powershell
 git clone https://github.com/lkop32788-lgtm/ollvm-pass.git
 cd ollvm-pass
 
@@ -154,8 +227,8 @@ cmake --build build --config Release
 
 ```powershell
 clang-cl -O2 -target x86_64-pc-windows-msvc  ^
-         -fpass-plugin=build/OllvmPass.dll    ^
-         -mllvm -passes="cff"                 ^
+         -fpass-plugin=OllvmPass.dll           ^
+         -mllvm -passes="cff"                  ^
          /kernel /GS- driver.c -o driver.sys
 ```
 
@@ -163,11 +236,15 @@ clang-cl -O2 -target x86_64-pc-windows-msvc  ^
 
 ```powershell
 clang-cl -O2 -target x86_64-pc-windows-msvc  ^
-         -fpass-plugin=build/OllvmPass.dll    ^
-         -mllvm -passes="ollvm-all"            ^
-         /kernel /GS- /GL- /W3                ^
+         -fpass-plugin=OllvmPass.dll           ^
+         -mllvm -passes="ollvm-all"             ^
+         /kernel /GS- /GL- /W3                 ^
          driver.c -o driver.sys
 ```
+
+> **提示**：将 `-fpass-plugin=` 后的路径替换为实际编译产物路径：
+> - 独立编译：`build/OllvmPass.dll`
+> - 嵌入 LLVM 树编译：`llvm-build/lib/OllvmPass.dll`（或 `.so`）
 
 ### Pass 名称速查表
 
